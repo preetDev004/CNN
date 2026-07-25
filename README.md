@@ -1,0 +1,2 @@
+# Self-Driving Car Simulation Project
+A CNN model to control a self-driving car. The goal is to determine the appropriate steering angle using images captured from the car's front camera to ensure the vehicle stays on the road.

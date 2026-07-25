@@ -1,0 +1,14 @@
+[project]
+name = "self-driving-car-project"
+version = "0.1.0"
+description = "A CNN model to control a self-driving car. The goal is to determine the appropriate steering angle using images captured from the car's front camera to ensure the vehicle stays on the road."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "tensorflow>=2.16",
+    "numpy",
+    "pandas",
+    "opencv-python",
+    "scikit-learn",
+    "matplotlib",
+]
