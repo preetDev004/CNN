@@ -5,10 +5,15 @@ description = "A CNN model to control a self-driving car. The goal is to determi
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "tensorflow>=2.16",
+    "tensorflow",
     "numpy",
     "pandas",
     "opencv-python",
-    "scikit-learn",
     "matplotlib",
+    "scikit-learn",
+    "pillow",
+    "flask",
+    "python-socketio==4.6.1",
+    "python-engineio==3.13.2",
+    "eventlet",
 ]
