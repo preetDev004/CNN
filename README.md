@@ -57,7 +57,7 @@ Pipeline, end to end:
 ├── training_plots/              # loss curve + steering histograms
 ├── pyproject.toml
 ├── requirements.txt
-└── data/                        # driving_log.csv + IMG/, not committed
+└── data/                       
 ```
 
 ## Environment setup
@@ -89,7 +89,7 @@ data/
 ## Training
 
 ```bash
-uv run train.py --data-dir data --epochs 25 --samples-per-bin 50
+uv run train.py --data-dir data --epochs 10 --samples-per-bin 50
 ```
 
 Key arguments:
@@ -116,7 +116,7 @@ Output: `model/model.h5` (best validation-loss epoch) and
 ## Testing in the simulator
 
 ```bash
-uv run TestSimulation.py --model model/model.h5 --port 4567
+uv run TestSimulation.py
 ```
 
 Then launch the simulator, select the same track used for data collection,
