@@ -4,6 +4,9 @@ DPS920 Final Project. A CNN trained to predict steering angle from the
 front-camera image, driving the car autonomously in the Udacity self-driving
 car simulator.
 
+## Demo Video
+[Check It Out Here!](https://youtu.be/gsXG8_7GrOI)
+
 ## Approach
 
 The model is Nvidia's PilotNet architecture: 5 convolutional layers feeding
@@ -166,3 +169,5 @@ simulator and server are talking; the car should then drive itself.
   5.x and `python-engineio` 4.x speak protocol 4 by default. Pinning
   `python-socketio==4.6.1` and `python-engineio==3.13.2` in
   `pyproject.toml` resolved it.
+
+
