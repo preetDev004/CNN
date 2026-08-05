@@ -1,56 +1,109 @@
 import os
+import argparse
+
 print('Setting Up ...')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import socketio
-import eventlet
-import numpy as np
-from keras.models import load_model
-from flask import Flask
+
 import base64
 from io import BytesIO
+
+import numpy as np
+import socketio
+import eventlet
+import eventlet.wsgi
+from flask import Flask
 from PIL import Image
-import cv2
+from keras.models import load_model
+
+from src.data_preprocessing import preprocess
 
 sio = socketio.Server()
-app = Flask(__name__) #__main__
-maxSpeed = 10
+app = Flask(__name__)
 
-def preProcessing(img):
-    img = img[60:135, :, :]
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-    img = cv2.GaussianBlur(img, (3, 3), 0)
-    img = cv2.resize(img, (200, 66))
-    img = img / 255
-
-    return img
+model = None
+MAX_SPEED = 10.0
+MIN_SPEED = 4.0
+speed_limit = MAX_SPEED
 
 
 @sio.on('telemetry')
 def telemetry(sid, data):
-    speed = float(data['speed'])
-    image = Image.open(BytesIO(base64.b64decode(data['image'])))
-    image = np.asarray(image)
-    image = preProcessing(image)
-    image = np.array([image])
-    steering = float(model.predict(image))
-    throttle = 1.0 - speed/maxSpeed
-    print(f'{throttle}, {steering}, {speed}')
-    sendControl(steering, throttle)
+    global speed_limit
+
+    if not data:
+        sio.emit('manual', data={}, skip_sid=True)
+        return
+
+    try:
+        speed = float(data['speed'])
+        image = Image.open(BytesIO(base64.b64decode(data['image'])))
+        image = np.asarray(image)
+
+        # Exactly the same preprocessing used in training.
+        image = preprocess(image)
+        image = np.array([image], dtype=np.float32)
+
+        # model.predict returns shape (1, 1). float() on an ndim>0 array is a
+        # hard TypeError on numpy >= 2.4, so index down to a scalar first.
+        steering = float(model.predict(image, verbose=0)[0][0])
+
+        # Ease off the throttle on sharp turns so the car does not oversteer.
+        if speed > speed_limit:
+            speed_limit = MIN_SPEED
+        else:
+            speed_limit = MAX_SPEED
+        throttle = 1.0 - (steering ** 2) - (speed / speed_limit) ** 2
+        throttle = float(np.clip(throttle, -1.0, 1.0))
+
+        print(f'steering={steering:+.4f}  throttle={throttle:+.4f}  speed={speed:.2f}')
+        sendControl(steering, throttle)
+    except Exception as exc:
+        # eventlet swallows greenlet exceptions, which makes a crashing
+        # handler look identical to "the car just sits there".
+        import traceback
+        traceback.print_exc()
+        print(f'telemetry handler failed: {exc}')
 
 
 @sio.on('connect')
 def connect(sid, environ):
-    print('Connected')
-    sendControl(0, 0)
+    print('Connected:', sid)
+    sendControl(0.0, 0.0)
+
+
+@sio.on('disconnect')
+def disconnect(sid):
+    print('Disconnected:', sid)
 
 
 def sendControl(steering, throttle):
     sio.emit('steer', data={
-        'steering_angle' : steering.__str__(),
-        'throttle' : throttle.__str__()
+        'steering_angle': str(steering),
+        'throttle': str(throttle),
     })
 
-if __name__ == "__main__":
-    model = load_model('model.h5')
-    app = socketio.Middleware(sio, app)
-    eventlet.wsgi.server(eventlet.listen(('', 4567)), app)
+
+def main():
+    global model
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', default='model/model.h5', help='path to the trained .h5 model')
+    parser.add_argument('--port', type=int, default=4567)
+    args = parser.parse_args()
+
+    if not os.path.exists(args.model):
+        raise SystemExit(f'Model file not found: {args.model}')
+
+    print(f'Loading model from {args.model} ...')
+    model = load_model(args.model, compile=False)
+
+    # Warm up so the first real telemetry frame is not delayed by graph tracing.
+    model.predict(np.zeros((1, 66, 200, 3), dtype=np.float32), verbose=0)
+    print('Model loaded. Start the simulator in Autonomous Mode.')
+
+    wsgi_app = socketio.Middleware(sio, app)
+    eventlet.wsgi.server(eventlet.listen(('', args.port)), wsgi_app)
+
+
+if __name__ == '__main__':
+    main()
